@@ -58,7 +58,7 @@ Sample results using alpha=0.5, beta=0.3 and gamma=0.2. Also, objectives are bal
 |     2    |   9   |   10  |    66    |        110       |   10  |       5.55s       |  0.00% |          106km         |          1.48          |             18.19km             |           4          |
 |     3    |   15  |   21  |    191   |        775       |   10  |     65035.45s     |  0.00% |          87km          |          1.45          |             15.34km             |           3          |
 |     4    |   32  |   73  |    794   |       1040       |   10  |       86400s      | 14.52% |         2183km         |          1.11          |             19.02km             |          30          |
-|     5    |  162  |  429  |   5942   |       1952       |  1010 |      178872s      |    -   |            -           |            -           |                -                |           -          |
+|     5    |  162  |  429  |   5942   |       1952       |   10  |      178872s      |    -   |            -           |            -           |                -                |           -          |
 
 
 **Results for Instance 5 (Rio de Janeiro Neighborhoods - Unbalanced Results)**
