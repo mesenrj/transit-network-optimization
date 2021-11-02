@@ -22,7 +22,7 @@ with conda
 conda install -c conda-forge numpy pandas geopandas matplotlib networkx osmnx
 ```
 
-- Xpress 8.1.2 (You can download a free version of Xpress with a limited license [here](https://content.fico.com/xpress-optimization-community-license?utm_source=FICO-Community&utm_medium=app-homepage))
+- FICO Xpress Solver (You can download a free version of Xpress with a limited license [here](https://content.fico.com/xpress-optimization-community-license?utm_source=FICO-Community&utm_medium=app-homepage))
 
 ## Usage
 
