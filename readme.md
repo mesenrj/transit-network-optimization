@@ -61,9 +61,9 @@ Sample results using alpha=0.5, beta=0.3 and gamma=0.2. Also, objectives are bal
 |     5    |  162  |  429  |   5942   |       1952       |  1010 |      178872s      |    -   |            -           |            -           |                -                |           -          |
 
 
-** Results for Instance 5 (Rio de Janeiro Neighborhoods - Unbalanced Results) **
+**Results for Instance 5 (Rio de Janeiro Neighborhoods - Unbalanced Results)**
 
-![Instance 5 results](output/instance_5_050302_unbalanced.png)
+![Instance 5 results](output/example.png)
 
 
 ## License
