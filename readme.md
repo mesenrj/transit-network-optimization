@@ -50,7 +50,7 @@ Also, Rio de Janeiro's fare policy allows only one transfer with a single fare. 
 
 ## Results
 
-Sample results using alpha=0.5, beta=0.3 and gamma=0.2. Also, objectives are balanced to be in the same order of magnitude. Larger values of alpha (minimize total extension of routes) demand more time to optimize. Experiments were run at a Core i7 6700k @ 4.00GHz with 64 GB of RAM. A time limit of 86400s (24h) was imposed and experiments would terminate if any solutions were available. Note that this is not the case for instance 5. Even after 178872 seconds (aprox. 50h) instance 5 produced no results or bounds.
+Sample results using alpha=0.5, beta=0.3 and gamma=0.2. Also, objectives are balanced to be in the same order of magnitude. Larger values of alpha (minimize total extension of routes) demand more time to optimize. Experiments were run using a Core i7 6700k @ 4.00GHz with 64 GB of RAM. A time limit of 86400s (24h) was imposed and experiments would terminate if any integer solutions were available. For instance 5, even after 178872 seconds (aprox. 50h) no results or bounds were found.
 
 | Instance | Nodes | Edges | OD Pairs | Candidate Routes | Paths | Optimization Time |   Gap  | Selected Routes Length | Avg. Transfer per User | Avg. Distance Traveled per User | # Of Routes Selected |
 |:--------:|:-----:|:-----:|:--------:|:----------------:|:-----:|:-----------------:|:------:|:----------------------:|:----------------------:|:-------------------------------:|:--------------------:|
