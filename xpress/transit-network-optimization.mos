@@ -79,7 +79,8 @@ writeln("Optimization model for transit networks based on Guan et al. (2006). Th
 writeln("routes from a initial set of candidate routes, considering total system size, total transfer demand")
 writeln("and total travel time/distance.")
 writeln("")
-writeln("Preprocessing codes and instance data generators available at: <Link to Github Repo>")
+writeln("Preprocessing codes and instance data generators available at:")
+writeln("https://github.com/mesenrj/transit-network-optimization")
 writeln("")
 writeln("----------------------------------------------------------------------------------------------------")
 
