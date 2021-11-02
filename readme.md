@@ -1,4 +1,4 @@
-# Transit Network Optimization w/ Xpress
+# Transit Network Optimization
 
 This repository is an implementation of Guan et al. (2006) work titled 'Simultaneous optimization of transit line configuration and passenger line assignment' using python to generate instances and data and Xpress to solve instances.
 
