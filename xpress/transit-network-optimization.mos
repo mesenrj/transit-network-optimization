@@ -1,0 +1,641 @@
+!@encoding CP1252
+model Guan2006
+uses "mmxprs"; 		!gain access to the Xpress-Optimizer solver
+uses "mmsystem"; 	!gain access to system fucntions, like gettime
+uses "mmsheet"; 	!gain access to csv reader
+
+!!!!!!!!!!!!!!!!!
+!!! Filenames !!!
+!!!!!!!!!!!!!!!!!
+
+parameters
+	
+	! Objective Weights
+	alpha = 0.7					! Minimize cost of chosen lines
+	beta  = 0.2					! Minimize # of transfers
+	gamma = 1 - (alpha + beta)	! Minimize travel time
+	
+	! Objective Balance
+	a_bal = 1
+	b_bal = 1
+	c_bal = 1
+
+	! Instance
+	instance			= "instance_05"		! Choose your instance here
+	variation           = "none"			! Choose your instance variation here
+
+	! Other
+	verbose  	 		= true
+
+	! Array Sizes
+	f_array_sizes 		= instance + "/data/array_sizes.txt"
+
+	! Preprocessing
+	f_delta 			= instance + "/data/small_delta.txt"
+	f_Sd    			= instance + "/data/small_delta_start.txt"
+	f_Fd				= instance + "/data/small_delta_finish.txt"
+
+	f_DELTA 			= instance + "/data/big_delta.txt"
+	f_SD    			= instance + "/data/big_delta_start.txt"
+	f_FD  				= instance + "/data/big_delta_finish.txt"
+
+	f_yf_OD 			= instance + "/data/yfix_origin_destination.txt"
+	f_yf_R  			= instance + "/data/yfix_routes.txt"
+
+	! Arrays
+	f_node_id 			= instance + "/data/node_id.txt"
+	f_node_name 		= instance + "/data/node_name.txt"
+
+	f_edge_id 			= instance + "/data/edge_id.txt"
+	f_edge_uv 			= instance + "/data/edge_uv.txt"
+	f_edge_length		= instance + "/data/edge_length.txt"
+	f_edge_time			= instance + "/data/edge_time.txt"
+	f_edge_capacity		= instance + "/data/edge_capacity.txt"
+
+	f_origins	    	= instance + "/data/origins.txt"
+	f_destinations 		= instance + "/data/destinations.txt"
+	f_demand 			= instance + "/data/demand.txt"
+
+	f_route_sequence  	= instance + "/data/route_sequence.txt"
+	f_route_length    	= instance + "/data/route_length.txt"
+	f_route_frequency 	= instance + "/data/route_frequency.txt"
+
+	f_path_sequence   	= instance + "/data/path_sequence.txt"
+	f_path_length     	= instance + "/data/path_length.txt"
+
+end-parameters
+
+writeln("----------------------------------------------------------------------------------------------------")
+writeln("                                 Transit Network Optimization Model                                 ")
+writeln("----------------------------------------------------------------------------------------------------")
+writeln("")
+writeln("Authors: Fernando Pfistcher (PET/COPPE/UFRJ) [fernando.costa@pet.coppe.ufrj.br]")
+writeln("         Thales Mesentier   (PET/COPPE/UFRJ) [thales.mesentier@pet.coppe.ufrj.br]")
+writeln("")
+writeln("   Year: 2021")
+writeln("")
+writeln("")
+writeln("Optimization model for transit networks based on Guan et al. (2006). This model selects a subset of")
+writeln("routes from a initial set of candidate routes, considering total system size, total transfer demand")
+writeln("and total travel time/distance.")
+writeln("")
+writeln("Preprocessing codes and instance data generators available at: <Link to Github Repo>")
+writeln("")
+writeln("----------------------------------------------------------------------------------------------------")
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!
+!!! Read Array Sizes !!!
+!!!!!!!!!!!!!!!!!!!!!!!!
+
+declarations
+
+	! Basic Values
+	_N : integer	! # of Nodes in Graph
+	_E : integer	! # of Edges in Graph
+	_W : integer	! # of Origin-Destination pairs (with demand > 0)
+	_R : integer	! # of Candidate Routes
+	_K : integer	! # of Shortest Paths Calculated from origin to destination
+
+	! Preprocessing
+	_rd : integer	! Vector size of delta preprocessing
+	_rD : integer	! Vector size of DELTA preprocessing
+	_fy : integer	! Vector size of y variable preprocessing
+
+end-declarations
+
+! Read file
+writeln("")
+writeln("")
+writeln("                                            Array  Sizes                                            ")
+writeln("----------------------------------------------------------------------------------------------------")
+writeln("")
+writeln("Reading array sizes from ", f_array_sizes)
+writeln("")
+
+fopen(f_array_sizes, F_INPUT)
+	read(_N)
+	read(_E)
+	read(_W)
+	read(_R)
+	read(_K)
+	read(_rd)
+	read(_rD)
+	read(_fy)
+fclose(F_INPUT)
+
+! Sanity Check: Print values
+setparam("REALFMT", "%1.2f")
+
+writeln("                      Array | Var | Size")
+writeln("                      Nodes |  _N | ", _N)
+writeln("                      Edges |  _E | ", _E)
+writeln("   Origin-Destination Pairs |  _W | ", _W)
+writeln("           Candidate Routes |  _R | ", _R)
+writeln(" Shortest Paths for each OD |  _K | ", _K)
+writeln("----------------------------------------------------------------------------------------------------")
+writeln("")
+writeln("")
+writeln("                                           Preprocessing                                            ")
+writeln("----------------------------------------------------------------------------------------------------")
+writeln("")
+writeln(" Matrix | Original Size | Eliminated | Reduced Size | Reduction (%) ")
+writeln("  DELTA | ", strfmt(_R*_E, 13)   , " | ", strfmt((_R*_E)-_rD, 10)   , " | ", strfmt(_rD, 12)        , " | ", strfmt((1-(_rD/(_R*_E)))*100, 13, 2))
+writeln("  delta | ", strfmt(_W*_K*_E, 13), " | ", strfmt((_W*_K*_E)-_rd, 10), " | ", strfmt(_rd, 12)        , " | ", strfmt((1-(_rd/(_W*_K*_E)))*100, 13, 2))
+writeln(" y(w,r) | ", strfmt(_W*_R, 13)   , " | ", strfmt(_fy, 10)           , " | ", strfmt((_W*_R)-_fy, 12), " | ", strfmt((1-(((_W*_R)-_fy)/(_W*_R)))*100, 13, 2))
+writeln("----------------------------------------------------------------------------------------------------")
+writeln("")
+
+
+!Declarations
+declarations
+
+	! Preprocessing Iterators
+	Rd = 1.._rd	! Vector size of delta preprocessing
+	RD = 1.._rD	! Vector size of DELTA preprocessing
+	YF = 1.._fy	! Vector size of y variable preprocessing
+
+	! Array Iterators
+	N = 1.._N	! # of Nodes
+	E = 1.._E	! # of Edges
+	R = 1.._R 	! # of Routes
+	W = 1.._W 	! # of Origin-Destination Pairs
+	K = 1.._K 	! # of Shortest Paths for any Origin-Destination Pair
+
+
+	! Preprocessing Arrays
+	delta : array(Rd) of integer    !!!!!!!!!!!!!!!!!!!!
+	Sd    : array(W, K) of integer  !!! delta Matrix !!!
+	Fd	  : array(W, K) of integer	!!!!!!!!!!!!!!!!!!!!
+
+	DELTA : array(RD) of integer	!!!!!!!!!!!!!!!!!!!!
+	SD    : array(E) of integer		!!! DELTA Matrix !!!
+	FD    : array(E) of integer		!!!!!!!!!!!!!!!!!!!!
+
+	yf_OD : array(YF) of integer
+	yf_R  : array(YF) of integer
+
+	! Arrays
+	node_id 		: array(N) of integer		! Unique ID of Node (int)
+	node_name 		: array(N) of string		! Name of Node (string)
+
+	edge_id 		: array(E) of integer		! Unique ID of Edge (int)
+	edge_uv 		: array(E, 1..2) of integer	! Origin (u) and Destination (v) of Edge
+	edge_length		: array(E) of real			! Edge length (int, real)
+	edge_time		: array(E) of real			! Edge travel time (int, real)
+	edge_capacity	: array(E) of integer		! Edge Capacity (int, real)
+
+	origins	    	: array(W) of integer		! List of Origins for each OD combination (int)
+	destinations 	: array(W) of integer		! List of Destinations for each OD combination (int)
+	demand 			: array(W) of integer		! Demand from O to D (int)
+
+	route_sequence  : array(R) of string		! Sequence of nodes in route (string)
+	route_length    : array(R) of real			! Length of route (int, real)
+	route_frequency : array(R) of real 			! Frequency of route (int, real)
+
+	path_sequence   : array(W, K) of string		! Sequence of nodes in path (string)
+	path_length     : array(W, K) of real		! Length of path (int, real)
+
+
+	! Decision Variables
+	x : array(R) of mpvar 		! If route 'r' is chosen in the plan
+	y : array(W, R) of mpvar	! If demand in 'w' choses route 'r'
+	z : array(W, K) of mpvar	! If demand in 'w' choses path 'k'
+
+	! Constants
+	MIN_LENGTH = 0				! Minimum length of any routes 'm'
+	MAX_LENGTH = 100000000000	! Maximum length of any routes 'm'
+	MAX_ROUTES = 2				! Maximum number of routes used by any passenger
+
+end-declarations
+
+!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!! Read Data !!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!
+
+writeln("")
+writeln("")
+writeln("                                          Data  Ingestion                                           ")
+writeln("----------------------------------------------------------------------------------------------------")
+writeln("")
+
+! Get time to calculate total time to ingest data
+read_data_start_time := gettime
+
+! Nodes
+writeln("Reading nodes data")
+
+fopen(f_node_id, F_INPUT)
+	forall(n in N) read(node_id(n))
+fclose(F_INPUT)
+
+fopen(f_node_name, F_INPUT)
+	forall(n in N) read(node_name(n))
+fclose(F_INPUT)
+
+
+! Edges
+writeln("Reading edges data...")
+
+fopen(f_edge_id, F_INPUT)
+	forall(e in E) read(edge_id(e))
+fclose(F_INPUT)
+
+fopen(f_edge_uv, F_INPUT)
+	forall(e in E) read(edge_uv(e, 1))
+	forall(e in E) read(edge_uv(e, 2))
+fclose(F_INPUT)
+
+fopen(f_edge_length, F_INPUT)
+	forall(e in E) read(edge_length(e))
+fclose(F_INPUT)
+
+fopen(f_edge_time, F_INPUT)
+	forall(e in E) read(edge_time(e))
+fclose(F_INPUT)
+
+fopen(f_edge_capacity, F_INPUT)
+	forall(e in E) read(edge_capacity(e))
+fclose(F_INPUT)
+
+
+! Origin-Destination
+writeln("Reading origin-destination data...")
+
+fopen(f_origins, F_INPUT)
+	forall(w in W) read(origins(w))
+fclose(F_INPUT)
+
+fopen(f_destinations, F_INPUT)
+	forall(w in W) read(destinations(w))
+fclose(F_INPUT)
+
+fopen(f_demand, F_INPUT)
+	forall(w in W) read(demand(w))
+fclose(F_INPUT)
+
+
+! Routes
+writeln("Reading routes data...")
+
+fopen(f_route_sequence, F_INPUT)
+	forall(r in R) read(route_sequence(r))
+fclose(F_INPUT)
+
+fopen(f_route_length, F_INPUT)
+	forall(r in R) read(route_length(r))
+fclose(F_INPUT)
+
+fopen(f_route_frequency, F_INPUT)
+	forall(r in R) read(route_frequency(r))
+fclose(F_INPUT)
+
+
+! Paths
+writeln("Reading paths data...")
+
+fopen(f_path_sequence, F_INPUT)
+	forall(w in W, k in K) read(path_sequence(w, k))
+fclose(F_INPUT)
+
+fopen(f_path_length, F_INPUT)
+	forall(w in W, k in K) read(path_length(w, k))
+fclose(F_INPUT)
+
+
+! DELTA
+writeln("Reading DELTA data...")
+
+fopen(f_DELTA, F_INPUT)
+	forall(i in RD) read(DELTA(i))
+fclose(F_INPUT)
+
+fopen(f_SD, F_INPUT)
+	forall(e in E) read(SD(e))
+fclose(F_INPUT)
+
+fopen(f_FD, F_INPUT)
+	forall(e in E) read(FD(e))
+fclose(F_INPUT)
+
+! delta
+writeln("Reading delta data...")
+
+fopen(f_delta, F_INPUT)
+	forall(i in Rd) read(delta(i))
+fclose(F_INPUT)
+
+fopen(f_Sd, F_INPUT)
+	forall(w in W, k in K) read(Sd(w, k))
+fclose(F_INPUT)
+
+fopen(f_Fd, F_INPUT)
+	forall(w in W, k in K) read(Fd(w, k))
+fclose(F_INPUT)
+
+! Y Fix
+writeln("Reading y fixing data...")
+
+fopen(f_yf_OD, F_INPUT)
+	forall(i in YF) read(yf_OD(i))
+fclose(F_INPUT)
+
+fopen(f_yf_R, F_INPUT)
+	forall(i in YF) read(yf_R(i))
+fclose(F_INPUT)
+
+writeln("")
+writeln("----------------------------------------------------------------------------------------------------")
+writeln("Data Imported. Elapsed time: ",  gettime - read_data_start_time, " seconds.")
+writeln("----------------------------------------------------------------------------------------------------")
+
+
+writeln("")
+writeln("")
+writeln("                                          Building  Model                                           ")
+writeln("----------------------------------------------------------------------------------------------------")
+writeln("")
+
+! Get time to calculate total time to build model
+model_build_start_time := gettime
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!! Objective Function !!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+writeln("Building objective function...")
+
+! Minimum cost set of transit lines
+MinCostLines   := sum(r in R) route_length(r) * x(r)
+
+! Minimum transfers
+MinTransfers   := sum(w in W, r in R) demand(w) * y(w, r)
+
+! Minimum travel time
+MinTravelTime  := sum(w in W, k in K) demand(w) * path_length(w, k) * z(w, k)
+
+! Multiobjective Function
+TransitNetwork := (alpha * (MinCostLines/a_bal)) + (beta * (MinTransfers/b_bal)) + (gamma * (MinTravelTime/c_bal))
+
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!! Restrictions !!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+writeln("Building restrictions...")
+
+! Covering: All links must be covered by at least 1 line
+!forall(e in E) do
+!	sum(r in SD(e)..FD(e)) x(DELTA(r)) >= 1
+!end-do
+
+! Coupling: All links chosen by passenger must be covered by chosen routes
+forall(w in W, k in K) do
+	forall(e in Sd(w, k)..Fd(w, k)) do
+		sum(r in SD(delta(e))..FD(delta(e))) y(w, DELTA(r)) >= z(w, k)
+	end-do
+end-do
+
+! Cannot choose empty path
+forall(w in W, k in K) do
+	path_length(w, k) >= z(w, k)
+end-do
+
+! Coupling: Passenger can only take available lines
+forall(r in R, w in W) do
+	x(r) - y(w, r) >= 0
+end-do
+
+! Assignment: Passenger traveling from O to D chooses one and only one path
+forall(w in W) do
+	sum(k in K) z(w, k) = 1
+end-do
+
+! Knapsack: Segment capacity (sum of frequencies must be less than capacity of segment)
+!forall(e in E) do
+!	sum(r in SD(e)..FD(e)) x(DELTA(r)) * route_frequency(DELTA(r)) <= edge_capacity(e)
+!end-do
+
+! Knapsack: Minimum and maximum lenght for each transit line
+!forall(r in R) do
+!	(route_length(r) - MIN_LENGTH) * x(r) >= 0
+!	(route_length(r) - MAX_LENGTH) * x(r) <= 0
+!end-do
+
+! Knapsack: No more than MAX_ROUTES routes or MAX_ROUTES - 1 transfers
+forall(w in W) do
+	sum(r in R) y(w, r) <= MAX_ROUTES
+end-do
+
+! Domain of decision variables
+forall(r in R) do
+	x(r) is_binary
+end-do
+
+forall(w in W) do
+	forall(r in R) y(w, r) is_binary
+	forall(k in K) z(w, k) is_binary
+end-do
+
+
+!!!!!!!!!!!!!!!!!!!!
+!!! Fixed Values !!!
+!!!!!!!!!!!!!!!!!!!!
+
+! If neither origin nor destination on route, then route cannot be chosen for od pair.
+forall(yf in YF) do
+	y(yf_OD(yf), yf_R(yf)) = 0
+end-do
+
+
+! Primal Heuristic Solution Value (Reduces B&B Tree Search)
+!setparam("XPRS_MIPABSCUTOFF", 19434132) ! Unbalanced Result x1.5
+
+
+writeln("")
+writeln("----------------------------------------------------------------------------------------------------")
+writeln("Model Built. Elapsed time: ", gettime - model_build_start_time, " seconds.")
+writeln("----------------------------------------------------------------------------------------------------")
+
+!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!! Run Model !!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!
+
+! Set verbose to true to check performance
+setparam("XPRS_VERBOSE", verbose)
+
+! Set max optimization time to 24h
+setparam("XPRS_MAXTIME", 86400)   
+
+! Set Tuning Strategy
+setparam("XPRS_CUTSTRATEGY", 3)
+
+! Start running
+writeln("")
+writeln("")
+writeln("----------------------------------------------------------------------------------------------------")
+writeln("                                        Begin Running Model                                         ")
+writeln("----------------------------------------------------------------------------------------------------")
+writeln("                                                 .                                                  ")
+writeln("                                                 .                                                  ")
+writeln("                                                 .                                                  ")
+
+! Timer
+starttime := gettime
+
+! Optimize
+minimize(TransitNetwork)
+
+! Finish
+writeln("                                                 .                                                  ")
+writeln("                                                 .                                                  ")
+writeln("                                                 .                                                  ")
+writeln("----------------------------------------------------------------------------------------------------")
+writeln("                                         End Running Model                                          ")
+writeln("----------------------------------------------------------------------------------------------------")
+writeln("")
+writeln("")
+
+! Get problem status
+case getprobstat of
+	XPRS_OPT: status := "Optimal solution found"
+	XPRS_UNF: status := "Unfinished"
+	XPRS_INF: status := "Infeasible"
+	XPRS_UNB: status := "Unlimited"
+	XPRS_OTH: status := "Failure"
+else
+	status := "Whoops!!! I don't know what's going on..."
+end-case
+
+! Print problem status
+writeln("")
+writeln("")
+writeln("")
+writeln("\nOptimization status: ", status)
+
+! Calculate Percentage of OD pairs using kth path
+declarations
+	PathsK : array(K) of integer
+end-declarations
+	
+
+if (status = "Optimal solution found") or (status = "Unfinished") then
+
+	! Epsilon
+	epsilon := 0.0001
+	
+	! Calculate Total Demand
+	TotalDemand := sum(w in W) demand(w)
+	RoutesSelected := sum(r in R) getsol(x(r))
+	
+	! Calculate Percentage of OD pairs using kth path
+	forall(k in K) do
+		PathsK(k) := 0
+	end-do
+	
+	forall(w in W, k in K) do
+		if (getsol(z(w, k)) > epsilon) then
+			PathsK(k) := PathsK(k) + 1
+		end-if
+	end-do
+
+	! Summary of Results
+	writeln("")
+	writeln("                                               Summary                                              ")
+	writeln("----------------------------------------------------------------------------------------------------")
+	writeln(" Objective | Weight | Metric                  | Result ")
+	writeln(" ", strfmt("All", 9), " | ", strfmt("-", 6)   ," | Multiobjective Function | ", getobjval , "   ")
+	writeln(" ", strfmt("All", 9), " | ", strfmt("-", 6)   ," | Optimization Time       | ", gettime-starttime , " s ")
+	writeln("")
+	writeln(" ", strfmt(1, 9), " | ", strfmt(alpha, 6)     ," | Extension of Routes     | ", getsol(MinCostLines) , " m")
+	writeln(" ", strfmt(2, 9), " | ", strfmt(beta, 6)      ," | Transfer Score          | ", getsol(MinTransfers) , "   ")
+	writeln(" ", strfmt(3, 9), " | ", strfmt(gamma, 6)     ," | Total Traveled Distance | ", getsol(MinTravelTime), " m")
+	writeln("")
+	writeln(" ", strfmt(1, 9), " | ", strfmt(alpha, 6)     ," | Avg. Route Length       | ", getsol(MinCostLines) / RoutesSelected, " m")
+	writeln(" ", strfmt(2, 9), " | ", strfmt(beta, 6)      ," | Avg. Transfers per User | ", getsol(MinTransfers) / TotalDemand , "   ")
+	writeln(" ", strfmt(3, 9), " | ", strfmt(gamma, 6)     ," | Avg. Distance per User  | ", getsol(MinTravelTime) / TotalDemand, " m")
+	writeln("")
+	writeln(" ", strfmt(1, 9), " | ", strfmt(alpha, 6)     ," | # of Routes Selected    | ", RoutesSelected)
+	writeln("----------------------------------------------------------------------------------------------------")
+	writeln(" Instance parameters: Alpha = ", alpha, "; Beta = ", beta, "; Gamma = ", gamma)
+
+
+	! OD Pairs Using Kth Path
+	writeln("")
+	writeln("")
+	writeln("")
+	writeln("                                        OD Pairs vs Kth Path                                        ")
+	writeln("----------------------------------------------------------------------------------------------------")
+	writeln("  K | OD Pairs | (%)")
+	
+	! Table Body
+	forall(k in K) do
+		writeln(" ", strfmt(k, 2), " | ", strfmt(PathsK(k), 8), " | ", strfmt((PathsK(k)/_W)*100, 1, 2))
+	end-do
+	
+	writeln("----------------------------------------------------------------------------------------------------")
+
+
+
+	! Chosen Routes
+	writeln("")
+	writeln("")
+	writeln("")
+	writeln("                                               Routes                                               ")
+	writeln("----------------------------------------------------------------------------------------------------")
+	writeln(" Route ID |   Length (m) |   Demand | Sequence ")
+
+	! Table Body
+	forall(r in R) do
+
+		! Calculate demand
+		route_demand := sum(w in W) demand(w) * getsol(y(w, r))
+
+		if (getsol(x(r)) > epsilon) then
+			writeln(" ", strfmt(r, 8), " | ", strfmt(route_length(r), 12, 2), " | ", strfmt(route_demand, 8), " | ", route_sequence(r))
+		end-if
+	end-do
+	writeln("----------------------------------------------------------------------------------------------------")
+
+	! Chosen Routes for each OD
+	writeln("")
+	writeln("")
+	writeln("")
+	writeln("                                     Origin-Destination  Routes                                     ")
+	writeln("----------------------------------------------------------------------------------------------------")
+	writeln("    # |    O |    D |  Route |   Length (m) | Sequence")
+
+	! Table Body
+	forall(w in W) do
+		forall(r in R) do
+			if (getsol(y(w, r)) > epsilon) then
+				writeln(" ", strfmt(w, 4), " | ", strfmt(origins(w), 4), " | ", strfmt(destinations(w), 4), " | ", strfmt(r, 6), " | ", strfmt(route_length(r), 12, 2), " | ", route_sequence(r))
+			end-if
+		end-do
+	end-do
+	writeln("----------------------------------------------------------------------------------------------------")
+
+	! Chosen Paths for each OD
+	writeln("")
+	writeln("")
+	writeln("")
+	writeln("                                      Origin-Destination Paths                                      ")
+	writeln("----------------------------------------------------------------------------------------------------")
+	writeln("    # |    O |    D |   Path |   Length (m) | Sequence")
+
+	! Table Body
+	forall(w in W, k in K) do
+		if (getsol(z(w, k)) > epsilon) then
+			writeln(" ", strfmt(w, 4), " | ", strfmt(origins(w), 4), " | ", strfmt(destinations(w), 4), " | ", strfmt(k, 6), " | ", strfmt(path_length(w, k), 12, 2), " | ", path_sequence(w, k))
+		end-if
+	end-do
+	writeln("----------------------------------------------------------------------------------------------------")
+
+
+
+
+
+end-if
+
+end-model
