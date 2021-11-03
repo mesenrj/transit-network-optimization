@@ -1,6 +1,6 @@
-# Transit Network Optimization w/ Xpress
+# Transit Network Optimization
 
-This repository is an implementation of Guan et al. (2006) work titled 'Simultaneous optimization of transit line configuration and passenger line assignment' using python to generate instances and data and Xpress to solve instances.
+This repository is an implementation of Guan et al. (2006) work titled 'Simultaneous optimization of transit line configuration and passenger line assignment' using python to generate instances and FICO Xpress Solver to solve instances.
 
 
 ## Dependencies
@@ -22,7 +22,7 @@ with conda
 conda install -c conda-forge numpy pandas geopandas matplotlib networkx osmnx
 ```
 
-- Xpress 8.1.2 (You can download a free version of Xpress with a limited license [here](https://content.fico.com/xpress-optimization-community-license?utm_source=FICO-Community&utm_medium=app-homepage))
+- FICO Xpress Solver (You can download a free version of Xpress with a limited license [here](https://content.fico.com/xpress-optimization-community-license?utm_source=FICO-Community&utm_medium=app-homepage))
 
 ## Usage
 
@@ -43,14 +43,14 @@ To run the optimization model, open the file "transit_network_optimization.mos" 
 
 ## Optimizations to Xpress Model
 
-Our implementation of the model differs slightly from the paper. To avoid the usage of sparse matrices we preprocessed data to generate dynamic lists and remove the majority of zero elements from restrictions. Also, some values in the objective function are also preprocessed and given directly to the model.
+Our implementation of the model differs slightly from the paper. To avoid the usage of sparse matrices we preprocessed data to generate dynamic lists and remove the majority of zero elements from restrictions and some values in the objective function are also preprocessed and given directly to the model.
 
-Also, Rio de Janeiro's fare policy allows only one transfer with a single fare. We took advantage of this to preprocess data and fix all values of route-path combinations that would not be feasible (didn't contain either origin nor destination on route). This allows for a reduction of up to 72% of decision variables in y(w,r) decision matrix.
+Also, Rio de Janeiro's fare policy allows only one transfer per fare. We took advantage of this to preprocess data and fix all values of route-path combinations that would not be feasible (didn't contain either origin nor destination on route). This allows for a reduction of up to 72% of decision variables in y(w,r) decision matrix.
 
 
 ## Results
 
-Sample results using alpha=0.5, beta=0.3 and gamma=0.2. Also, objectives are balanced to be in the same order of magnitude. Larger values of alpha (minimize total extension of routes) demand more time to optimize. Experiments were run at a Core i7 6700k @ 4.00GHz with 64 GB of RAM. A time limit of 86400s (24h) was imposed and experiments would terminate if any solutions were available. Note that this is not the case for instance 5. Even after 178872 seconds (aprox. 50h) instance 5 produced no results or bounds.
+Sample results using alpha=0.5, beta=0.3 and gamma=0.2. Also, objectives are balanced to be in the same order of magnitude. Larger values of alpha (minimize total extension of routes) demand more time to optimize. Experiments were run using a Core i7 6700k @ 4.00GHz with 64 GB of RAM. A time limit of 86400s (24h) was imposed and experiments would terminate if any integer solutions were available. For instance 5, even after 178872 seconds (aprox. 50h) no results or bounds were found.
 
 | Instance | Nodes | Edges | OD Pairs | Candidate Routes | Paths | Optimization Time |   Gap  | Selected Routes Length | Avg. Transfer per User | Avg. Distance Traveled per User | # Of Routes Selected |
 |:--------:|:-----:|:-----:|:--------:|:----------------:|:-----:|:-----------------:|:------:|:----------------------:|:----------------------:|:-------------------------------:|:--------------------:|
@@ -58,7 +58,7 @@ Sample results using alpha=0.5, beta=0.3 and gamma=0.2. Also, objectives are bal
 |     2    |   9   |   10  |    66    |        110       |   10  |       5.55s       |  0.00% |          106km         |          1.48          |             18.19km             |           4          |
 |     3    |   15  |   21  |    191   |        775       |   10  |     65035.45s     |  0.00% |          87km          |          1.45          |             15.34km             |           3          |
 |     4    |   32  |   73  |    794   |       1040       |   10  |       86400s      | 14.52% |         2183km         |          1.11          |             19.02km             |          30          |
-|     5    |  162  |  429  |   5942   |       1952       |  1010 |      178872s      |    -   |            -           |            -           |                -                |           -          |
+|     5    |  162  |  429  |   5942   |       1952       |   10  |      178872s      |    -   |            -           |            -           |                -                |           -          |
 
 
 **Results for Instance 5 (Rio de Janeiro Neighborhoods - Unbalanced Results)**
