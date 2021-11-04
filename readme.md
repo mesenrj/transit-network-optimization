@@ -43,7 +43,7 @@ To run the optimization model, open the file "transit_network_optimization.mos" 
 
 ## Optimizations to Xpress Model
 
-Our implementation of the model differs slightly from the paper. To avoid the usage of sparse matrices we preprocessed data to generate dynamic lists and remove the majority of zero elements from restrictions and some values in the objective function are also preprocessed and given directly to the model.
+Our implementation of the model differs slightly from the paper. To avoid the usage of sparse matrices we preprocessed data to generate dynamic lists and remove the majority of zero elements from restrictions. Some values in the objective function are also preprocessed and given directly to the model.
 
 Also, Rio de Janeiro's fare policy allows only one transfer per fare. We took advantage of this to preprocess data and fix all values of route-path combinations that would not be feasible (didn't contain either origin nor destination on route). This allows for a reduction of up to 72% of decision variables in y(w,r) decision matrix.
 
